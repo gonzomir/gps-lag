@@ -28,6 +28,14 @@ float last_speed = 0.0;
 bool battery_read = true;
 int last_battery_percents = 0;
 
+#define SPEED_HISTORY_SIZE 120
+#define SPEED_HISTORY_WINDOW_MS 60000
+
+float speed_history[SPEED_HISTORY_SIZE];
+unsigned long speed_history_time[SPEED_HISTORY_SIZE];
+int speed_history_index = 0;
+int speed_history_count = 0;
+
 int start_timer_time = 300;
 int start_timer_start = 0;
 bool start_timer_started = false;
@@ -94,6 +102,36 @@ void IRAM_ATTR update_start_timer() {
 	do_update_start_timer = true;
 }
 
+/**
+ * Record a speed sample for the rolling average.
+ */
+void record_speed(float speed) {
+	speed_history[speed_history_index] = speed;
+	speed_history_time[speed_history_index] = millis();
+	speed_history_index = (speed_history_index + 1) % SPEED_HISTORY_SIZE;
+	if (speed_history_count < SPEED_HISTORY_SIZE) {
+		speed_history_count++;
+	}
+}
+
+/**
+ * Calculate the average speed over the last minute.
+ */
+float get_average_speed() {
+	unsigned long now = millis();
+	float sum = 0.0;
+	int count = 0;
+
+	for (int i = 0; i < speed_history_count; i++) {
+		if (now - speed_history_time[i] <= SPEED_HISTORY_WINDOW_MS) {
+			sum += speed_history[i];
+			count++;
+		}
+	}
+
+	return count > 0 ? sum / count : 0.0;
+}
+
 void do_speed() {
 	if (do_read_gnss) {
 		do_read_gnss = false;
@@ -128,18 +166,29 @@ void do_speed() {
 								speed = parser.lastGPVTG.ground_speed_2;
 							}
 
+							record_speed(speed);
+
 							if (speed != last_speed) {
 								// Show speed.
 								draw_speed(speed);
 								last_speed = speed;
 							}
+
+							char s[22] = "";
+							// Update status with the average speed for the last minute.
+							sprintf(s, "AVG: %0.1fkn", get_average_speed());
+							String status = String(s);
+							if (status != last_status) {
+								draw_status(status);
+								last_status = status;
+							}
 						}
 						break;
 					case NMEAParser::TYPE_GPGGA:
 						gps_is_ready = (parser.lastGPGGA.satellites_used > 3);
-						if (gps_is_ready) {
+						if (!gps_is_ready) {
 							char s[22] = "";
-							// Update status.
+							// Update status with satellite/accuracy info while waiting for a fix.
 							sprintf(s, "Sats: %d; Acc: %.2f m", parser.lastGPGGA.satellites_used, parser.lastGPGGA.hdop);
 							String status = String(s);
 							if (status != last_status) {
