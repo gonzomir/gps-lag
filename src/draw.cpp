@@ -68,7 +68,7 @@ void setup_display() {
 
 	lv_style_set_bg_color(&style_screen, background_color);
 	lv_style_set_text_color(&style_screen, text_color);
-	lv_style_set_text_font(&style_screen, &lvgl_rethinksans_bold_16);
+	lv_style_set_text_font(&style_screen, &lvgl_rethinksans_bold_24);
 	lv_style_set_pad_left(&style_screen, 0);
 	lv_style_set_pad_right(&style_screen, 0);
 	lv_style_set_pad_top(&style_screen, 0);
@@ -133,7 +133,7 @@ void setup_display() {
 	lv_obj_align(battery_label, LV_ALIGN_OUT_RIGHT_MID, 0, 0);
 
 	lv_obj_t * bottom_bar = lv_obj_create(lv_layer_top());
-	lv_obj_set_size(bottom_bar, screenWidth - 1, 40);
+	lv_obj_set_size(bottom_bar, screenWidth - 1, 44);
 	lv_obj_align(bottom_bar, LV_ALIGN_BOTTOM_MID, 0, 5);
 	lv_obj_set_flex_flow(bottom_bar, LV_FLEX_FLOW_ROW);
 	lv_obj_set_flex_align(bottom_bar, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
@@ -148,6 +148,7 @@ void setup_display() {
 
 	status_label = lv_label_create(bottom_bar);
 	lv_obj_align(status_label, LV_ALIGN_OUT_LEFT_MID, 0, 0);
+
 	units_label = lv_label_create(bottom_bar);
 	lv_obj_align(units_label, LV_ALIGN_OUT_RIGHT_MID, 0, 0);
 }
