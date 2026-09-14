@@ -25,7 +25,8 @@ bool do_update_start_timer = false;
 
 int last_fix = 0;
 String last_status = "";
-float last_speed = 0.0;
+float current_speed = 0.0;
+float displayed_speed = 0.0;
 bool battery_read = true;
 int last_battery_percents = 0;
 
@@ -82,7 +83,7 @@ void go_to_sleep() {
 
 void IRAM_ATTR read_gnss() {
 	ets_printf("PPS triggered\n");
-	do_read_gnss = !do_start_timer;
+	do_read_gnss = true;
 	last_fix = millis();
 }
 
@@ -97,7 +98,13 @@ void IRAM_ATTR update_start_timer() {
 	do_update_start_timer = true;
 }
 
-void do_speed() {
+/**
+ * Read and dispatch any pending GNSS sentences.
+ *
+ * Runs regardless of display mode so GPS tracking keeps going during the
+ * start timer countdown, not just on the speed screen.
+ */
+void read_gnss_data() {
 	if (do_read_gnss) {
 		do_read_gnss = false;
 
@@ -144,11 +151,7 @@ void do_speed() {
 								speed = parser.lastGPVTG.ground_speed_2;
 							}
 
-							if (speed != last_speed) {
-								// Show speed.
-								draw_speed(speed);
-								last_speed = speed;
-							}
+							current_speed = speed;
 						}
 						break;
 					case NMEAParser::TYPE_GPGGA:
@@ -188,11 +191,16 @@ void do_speed() {
 				draw_status(status);
 				last_status = status;
 			}
-			if (last_speed != 0.0) {
-				draw_speed(0.0);
-				last_speed = 0.0;
-			}
+			current_speed = 0.0;
 		}
+	}
+}
+
+void do_speed() {
+	// Only draw speed while the speed screen is showing.
+	if (current_speed != displayed_speed) {
+		draw_speed(current_speed);
+		displayed_speed = current_speed;
 	}
 
 	if (start_timer_ticker.active()) {
@@ -313,6 +321,8 @@ void loop() {
 			do_start_timer = true;
 		}
 	}
+
+	read_gnss_data();
 
 	switch (display_mode) {
 		case tkb_mode::speed:
