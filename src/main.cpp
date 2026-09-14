@@ -10,6 +10,7 @@
 
 #include "battery.h"
 #include "draw.h"
+#include "track.h"
 
 NMEAParser parser;
 
@@ -65,6 +66,8 @@ void go_to_sleep() {
 
 	power_off_display();
 
+	track_stop();
+
 	// GNSS off.
 	digitalWrite(GNSS_EN, LOW);
 
@@ -117,6 +120,19 @@ void do_speed() {
 							int minutes = atoi(gps_time.substr(2, 2).c_str());
 							int seconds = atoi(gps_time.substr(4, 2).c_str());
 							draw_time(hours, minutes, seconds);
+
+							// Log every meaningful (active) fix to the track file.
+							if (parser.lastGPRMC.status == 'A') {
+								if (!track_is_active()) {
+									track_start(parser.lastGPRMC.date, parser.lastGPRMC.utc_time);
+								}
+								track_log_fix(
+									parser.lastGPRMC.date, parser.lastGPRMC.utc_time,
+									parser.lastGPRMC.latitude, parser.lastGPRMC.north_south_indicator,
+									parser.lastGPRMC.longitude, parser.lastGPRMC.east_west_indicator,
+									parser.lastGPRMC.speed_over_ground
+								);
+							}
 						}
 						break;
 					case NMEAParser::TYPE_GPVTG:

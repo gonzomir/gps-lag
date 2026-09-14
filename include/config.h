@@ -24,6 +24,11 @@
 #define DISPLAY_W 400
 #define DISPLAY_H 300
 
+// Built-in microSD card slot, 1-bit SDMMC mode.
+#define SD_CLK 38
+#define SD_CMD 21
+#define SD_D0 39
+
 #ifndef CONFIG_H
 #define CONFIG_H
 
