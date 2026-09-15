@@ -75,6 +75,7 @@ bool track_start(const char *date, const char *time) {
 	sdcard_write_line("timestamp,latitude,longitude,speed_kn");
 
 	active = true;
+	ets_printf("Track log started: %s\n", path);
 	return true;
 }
 

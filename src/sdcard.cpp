@@ -38,7 +38,8 @@ bool sdcard_init() {
 }
 
 /**
- * Create a directory on the card, including it if it already exists.
+ * Create a directory on the card, including missing parent directories
+ * (like "mkdir -p"), or return true if it already exists.
  */
 bool sdcard_mkdir(const String &path) {
 	if (!mounted) {
@@ -49,7 +50,18 @@ bool sdcard_mkdir(const String &path) {
 		return true;
 	}
 
-	return SD_MMC.mkdir(path);
+	// SD_MMC.mkdir() only creates one level, so ensure the parent exists first.
+	int slash = path.lastIndexOf('/');
+	if (slash > 0 && !sdcard_mkdir(path.substring(0, slash))) {
+		return false;
+	}
+
+	if (!SD_MMC.mkdir(path)) {
+		ets_printf("SD card: failed to create directory %s.\n", path.c_str());
+		return false;
+	}
+
+	return true;
 }
 
 /**
@@ -63,7 +75,12 @@ bool sdcard_open_append(const String &path) {
 	sdcard_close();
 
 	current_file = SD_MMC.open(path, FILE_APPEND);
-	return (bool)current_file;
+	if (!current_file) {
+		ets_printf("SD card: failed to open %s.\n", path.c_str());
+		return false;
+	}
+
+	return true;
 }
 
 /**
