@@ -10,7 +10,9 @@
 
 #include "battery.h"
 #include "draw.h"
+#include "sdcard.h"
 #include "track.h"
+#include "usb_storage.h"
 
 NMEAParser parser;
 
@@ -267,6 +269,9 @@ void setup() {
 	digitalWrite(GNSS_EN, HIGH);
 
 	Serial.begin(115200);
+
+	sdcard_init();
+	usb_storage_init();
 
 	setup_display();
 	draw_units("SOG, Kn");

@@ -40,3 +40,41 @@ bool sdcard_write_line(const String &line);
  * Close the currently open file, if any.
  */
 void sdcard_close();
+
+/**
+ * Number of raw sectors on the card.
+ */
+uint32_t sdcard_sector_count();
+
+/**
+ * Size of one raw sector, in bytes (512 in practice).
+ */
+uint16_t sdcard_sector_size();
+
+/**
+ * Read one raw sector from the card, bypassing the filesystem.
+ *
+ * @param sector Sector (LBA) number.
+ * @param buffer Destination buffer, at least sdcard_sector_size() bytes.
+ * @return bool True on success.
+ */
+bool sdcard_read_sector(uint32_t sector, uint8_t *buffer);
+
+/**
+ * Write one raw sector to the card, bypassing the filesystem.
+ *
+ * @param sector Sector (LBA) number.
+ * @param buffer Source buffer, sdcard_sector_size() bytes.
+ * @return bool True on success.
+ */
+bool sdcard_write_sector(uint32_t sector, const uint8_t *buffer);
+
+/**
+ * Fully unmount and remount the card, discarding any cached filesystem
+ * state. Use this before and after another accessor (e.g. USB mass
+ * storage) has had raw access to the card, so our own filesystem view
+ * never acts on stale state.
+ *
+ * @return bool True if the card is mounted and ready to use afterwards.
+ */
+bool sdcard_remount();
