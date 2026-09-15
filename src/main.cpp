@@ -10,6 +10,9 @@
 
 #include "battery.h"
 #include "draw.h"
+#include "sdcard.h"
+#include "track.h"
+#include "usb_storage.h"
 
 NMEAParser parser;
 
@@ -24,7 +27,9 @@ bool do_update_start_timer = false;
 
 int last_fix = 0;
 String last_status = "";
-float last_speed = 0.0;
+float current_speed = 0.0;
+float displayed_speed = 0.0;
+bool usb_connected_displayed = false;
 bool battery_read = true;
 int last_battery_percents = 0;
 
@@ -65,6 +70,8 @@ void go_to_sleep() {
 
 	power_off_display();
 
+	track_stop();
+
 	// GNSS off.
 	digitalWrite(GNSS_EN, LOW);
 
@@ -79,7 +86,7 @@ void go_to_sleep() {
 
 void IRAM_ATTR read_gnss() {
 	ets_printf("PPS triggered\n");
-	do_read_gnss = !do_start_timer;
+	do_read_gnss = true;
 	last_fix = millis();
 }
 
@@ -94,7 +101,13 @@ void IRAM_ATTR update_start_timer() {
 	do_update_start_timer = true;
 }
 
-void do_speed() {
+/**
+ * Read and dispatch any pending GNSS sentences.
+ *
+ * Runs regardless of display mode so GPS tracking keeps going during the
+ * start timer countdown, not just on the speed screen.
+ */
+void read_gnss_data() {
 	if (do_read_gnss) {
 		do_read_gnss = false;
 
@@ -117,6 +130,19 @@ void do_speed() {
 							int minutes = atoi(gps_time.substr(2, 2).c_str());
 							int seconds = atoi(gps_time.substr(4, 2).c_str());
 							draw_time(hours, minutes, seconds);
+
+							// Log every meaningful (active) fix to the track file.
+							if (parser.lastGPRMC.status == 'A') {
+								if (!track_is_active()) {
+									track_start(parser.lastGPRMC.date, parser.lastGPRMC.utc_time);
+								}
+								track_log_fix(
+									parser.lastGPRMC.date, parser.lastGPRMC.utc_time,
+									parser.lastGPRMC.latitude, parser.lastGPRMC.north_south_indicator,
+									parser.lastGPRMC.longitude, parser.lastGPRMC.east_west_indicator,
+									parser.lastGPRMC.speed_over_ground
+								);
+							}
 						}
 						break;
 					case NMEAParser::TYPE_GPVTG:
@@ -128,11 +154,7 @@ void do_speed() {
 								speed = parser.lastGPVTG.ground_speed_2;
 							}
 
-							if (speed != last_speed) {
-								// Show speed.
-								draw_speed(speed);
-								last_speed = speed;
-							}
+							current_speed = speed;
 						}
 						break;
 					case NMEAParser::TYPE_GPGGA:
@@ -172,11 +194,16 @@ void do_speed() {
 				draw_status(status);
 				last_status = status;
 			}
-			if (last_speed != 0.0) {
-				draw_speed(0.0);
-				last_speed = 0.0;
-			}
+			current_speed = 0.0;
 		}
+	}
+}
+
+void do_speed() {
+	// Only draw speed while the speed screen is showing.
+	if (current_speed != displayed_speed) {
+		draw_speed(current_speed);
+		displayed_speed = current_speed;
 	}
 
 	if (start_timer_ticker.active()) {
@@ -251,6 +278,12 @@ void setup() {
 
 	draw_status("Waiting for GPS...");
 
+	// Must come after setup_display(): if a PC is already connected, USB
+	// can enumerate and fire the connected event before the display (and
+	// its USB overlay) exists otherwise.
+	sdcard_init();
+	usb_storage_init();
+
 	Serial2.begin(38400, SERIAL_8N1, GNSS_RX, GNSS_TX);
 
 	attachInterrupt(digitalPinToInterrupt(MAIN_BTN), button_main_pressed, RISING);
@@ -297,6 +330,16 @@ void loop() {
 			do_start_timer = true;
 		}
 	}
+
+	// usb_storage_init() sets this from a different task; only touch LVGL
+	// (draw_usb_status) here, from loop()'s task.
+	bool usb_connected = usb_storage_is_connected();
+	if (usb_connected != usb_connected_displayed) {
+		draw_usb_status(usb_connected);
+		usb_connected_displayed = usb_connected;
+	}
+
+	read_gnss_data();
 
 	switch (display_mode) {
 		case tkb_mode::speed:
