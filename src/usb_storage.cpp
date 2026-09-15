@@ -13,6 +13,7 @@
 #define SECTOR_SIZE 512
 
 static USBMSC msc;
+static volatile bool connected = false;
 
 /**
  * Copy disk data into `buffer` for the host. The real address is
@@ -95,10 +96,12 @@ static void usb_event(void *arg, esp_event_base_t event_base, int32_t event_id, 
 	switch (event_id) {
 		case ARDUINO_USB_STARTED_EVENT:
 			// A PC took over: stop logging and hand the card to MSC with a
-			// clean, freshly-mounted filesystem view.
+			// clean, freshly-mounted filesystem view. Only touch flags here,
+			// not LVGL - this runs on the USB event task, not loop()'s.
 			ets_printf("USB connected: exposing SD card as mass storage.\n");
 			track_stop();
 			sdcard_remount();
+			connected = true;
 			break;
 
 		case ARDUINO_USB_STOPPED_EVENT:
@@ -106,6 +109,7 @@ static void usb_event(void *arg, esp_event_base_t event_base, int32_t event_id, 
 			// instead of acting on stale cached state.
 			ets_printf("USB disconnected: resuming track logging.\n");
 			sdcard_remount();
+			connected = false;
 			break;
 
 		default:
@@ -132,4 +136,11 @@ void usb_storage_init() {
 	USB.begin();
 
 	esp_rom_install_channel_putc(2, debug_over_usb);
+}
+
+/**
+ * Whether a USB host is currently connected.
+ */
+bool usb_storage_is_connected() {
+	return connected;
 }

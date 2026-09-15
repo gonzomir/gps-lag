@@ -29,6 +29,8 @@ lv_obj_t *time_label = NULL;
 lv_obj_t *battery_label = NULL;
 lv_obj_t *units_label = NULL;
 
+lv_obj_t *usb_overlay = NULL;
+
 /**
  * Flush display.
  *
@@ -150,6 +152,20 @@ void setup_display() {
 	lv_obj_align(status_label, LV_ALIGN_OUT_LEFT_MID, 0, 0);
 	units_label = lv_label_create(bottom_bar);
 	lv_obj_align(units_label, LV_ALIGN_OUT_RIGHT_MID, 0, 0);
+
+	// Overlay covering the speed/timer area, shown while a PC has the SD
+	// card mounted over USB. Sized to the middle strip between the bars.
+	usb_overlay = lv_obj_create(lv_layer_top());
+	lv_obj_add_style(usb_overlay, &style_screen, LV_PART_MAIN);
+	lv_obj_set_size(usb_overlay, screenWidth, screenHeight - 90);
+	lv_obj_align(usb_overlay, LV_ALIGN_CENTER, 0, 0);
+	lv_obj_set_scrollbar_mode(usb_overlay, LV_SCROLLBAR_MODE_OFF);
+	lv_obj_add_flag(usb_overlay, LV_OBJ_FLAG_HIDDEN);
+
+	lv_obj_t *usb_label = lv_label_create(usb_overlay);
+	lv_obj_center(usb_label);
+	lv_obj_add_style(usb_label, &style_big_label, LV_PART_MAIN);
+	lv_label_set_text(usb_label, "USB");
 }
 
 /**
@@ -223,6 +239,19 @@ void draw_start_timer(int seconds) {
 	seconds = seconds % 60;
 
 	lv_label_set_text_fmt(timer_label, "%d:%02d", minutes, seconds);
+}
+
+/**
+ * Show or hide the USB-connected overlay.
+ *
+ * @param connected
+ */
+void draw_usb_status(bool connected) {
+	if (connected) {
+		lv_obj_clear_flag(usb_overlay, LV_OBJ_FLAG_HIDDEN);
+	} else {
+		lv_obj_add_flag(usb_overlay, LV_OBJ_FLAG_HIDDEN);
+	}
 }
 
 /**

@@ -29,6 +29,7 @@ int last_fix = 0;
 String last_status = "";
 float current_speed = 0.0;
 float displayed_speed = 0.0;
+bool usb_connected_displayed = false;
 bool battery_read = true;
 int last_battery_percents = 0;
 
@@ -270,15 +271,18 @@ void setup() {
 
 	Serial.begin(115200);
 
-	sdcard_init();
-	usb_storage_init();
-
 	setup_display();
 	draw_units("SOG, Kn");
 	draw_speed(0.0);
 	draw_time(0, 0 ,0);
 
 	draw_status("Waiting for GPS...");
+
+	// Must come after setup_display(): if a PC is already connected, USB
+	// can enumerate and fire the connected event before the display (and
+	// its USB overlay) exists otherwise.
+	sdcard_init();
+	usb_storage_init();
 
 	Serial2.begin(38400, SERIAL_8N1, GNSS_RX, GNSS_TX);
 
@@ -325,6 +329,14 @@ void loop() {
 			start_timer_start = millis() / 1000;
 			do_start_timer = true;
 		}
+	}
+
+	// usb_storage_init() sets this from a different task; only touch LVGL
+	// (draw_usb_status) here, from loop()'s task.
+	bool usb_connected = usb_storage_is_connected();
+	if (usb_connected != usb_connected_displayed) {
+		draw_usb_status(usb_connected);
+		usb_connected_displayed = usb_connected;
 	}
 
 	read_gnss_data();

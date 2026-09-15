@@ -93,3 +93,10 @@ void timer_handler();
  * Change LVGL screen.
  */
 void change_screen();
+
+/**
+ * Show or hide the USB-connected overlay.
+ *
+ * @param connected
+ */
+void draw_usb_status(bool connected);
